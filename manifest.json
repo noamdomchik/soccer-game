@@ -1,0 +1,17 @@
+{
+  "name": "כדורגל מיני",
+  "short_name": "כדורגל",
+  "description": "משחק כדורגל שולחני מהנה",
+  "start_url": ".",
+  "display": "fullscreen",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00ff88",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

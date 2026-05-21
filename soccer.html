@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כדורגל מיני - משחק כדורגל שולחני</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00ff88">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            color: #00ff88;
+            text-shadow: 0 0 20px #00ff88;
+        }
+
+        #scoreBoard {
+            display: flex;
+            gap: 60px;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .player-score {
+            padding: 5px 20px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            background: #1a1a1a;
+        }
+
+        .player-score.active {
+            border-color: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        canvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            background: #1a5f1a;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+        }
+
+        #controls {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        #controls span {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #gameOverScreen {
+            display: none;
+        }
+
+        .screen-title {
+            font-size: 3rem;
+            color: #00ff88;
+            text-shadow: 0 0 20px #00ff88;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 12px 35px;
+            font-size: 1.2rem;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 8px;
+            min-width: 200px;
+        }
+
+        .btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 20px #00ff88;
+        }
+
+        .btn.selected {
+            background: #ff4488;
+            color: white;
+        }
+
+        .instructions {
+            margin: 15px 0;
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #ccc;
+            text-align: center;
+        }
+
+        #winnerText {
+            font-size: 2rem;
+            color: #ffd700;
+            margin-bottom: 20px;
+        }
+
+        .level-desc {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body tabindex="0">
+
+    <h1>כדורגל מיני</h1>
+    <div id="scoreBoard">
+        <div class="player-score" id="score1">כחול: 0</div>
+        <div class="player-score" id="score2">אדום: 0</div>
+    </div>
+
+    <canvas id="gameCanvas" width="900" height="550"></canvas>
+
+    <div id="controls">
+        <span>כחול:</span> W A S D לתזוזה &nbsp;&nbsp;&nbsp; <span>אדום:</span> חיצים לתזוזה
+    </div>
+
+    <div id="startScreen">
+        <div class="screen-title">כדורגל מיני</div>
+        <div class="instructions">
+            משחק כדורגל שולחני לשני שחקנים<br>
+            המטרה: להכניס 5 שערים ראשון!
+        </div>
+        <div style="font-size: 1.2rem; margin-bottom: 10px; color: #ccc;">בחר רמת שחקן:</div>
+        <button class="btn" onclick="setLevel('beginner')">מתחיל</button>
+        <div class="level-desc">שחקן איטי, כדור איטי, בקרה קלה</div>
+        <button class="btn" onclick="setLevel('amateur')">חובבן</button>
+        <div class="level-desc">מהירות בינונית, משחק מאוזן</div>
+        <button class="btn" onclick="setLevel('pro')">מקצוען</button>
+        <div class="level-desc">מהירות גבוהה, כדור מהיר</div>
+        <button class="btn" onclick="setLevel('champion')">אלוף</button>
+        <div class="level-desc">מהירות מטורפת, כדור מטורף!</div>
+    </div>
+
+    <div id="gameOverScreen">
+        <div class="screen-title">סוף המשחק!</div>
+        <div id="winnerText"></div>
+        <button class="btn" onclick="resetGame()">שחק שוב</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winnerText = document.getElementById('winnerText');
+        const score1El = document.getElementById('score1');
+        const score2El = document.getElementById('score2');
+
+        // משתני משחק
+        let gameRunning = false;
+        let score1 = 0;
+        let score2 = 0;
+        const WIN_SCORE = 5;
+        let currentLevel = 'beginner';
+
+        // הגדרות רמות
+        const levels = {
+            beginner: { playerSpeed: 4, kickPower: 6, ballFriction: 0.96, playerSize: 22 },
+            amateur:  { playerSpeed: 5.5, kickPower: 8, ballFriction: 0.97, playerSize: 20 },
+            pro:      { playerSpeed: 7, kickPower: 10, ballFriction: 0.98, playerSize: 18 },
+            champion: { playerSpeed: 8.5, kickPower: 12, ballFriction: 0.99, playerSize: 16 }
+        };
+
+        let playerSpeed = levels.beginner.playerSpeed;
+        let kickPower = levels.beginner.kickPower;
+        let ballFriction = levels.beginner.ballFriction;
+        let playerSize = levels.beginner.playerSize;
+
+        // מגרש
+        const margin = 40;
+        const fieldX = margin;
+        const fieldY = margin;
+        const fieldW = canvas.width - margin * 2;
+        const fieldH = canvas.height - margin * 2;
+        const goalWidth = 20;
+        const goalHeight = 120;
+        const goalY = canvas.height / 2 - goalHeight / 2;
+
+        // שחקנים
+        let player1 = { x: canvas.width * 0.25, y: canvas.height / 2, dx: 0, dy: 0 };
+        let player2 = { x: canvas.width * 0.75, y: canvas.height / 2, dx: 0, dy: 0 };
+
+        // כדור
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            dx: 0,
+            dy: 0,
+            radius: 10
+        };
+
+        // מקשים
+        const keys = {};
+
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+                e.preventDefault();
+            }
+            keys[e.code] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        window.onload = () => {
+            document.body.focus();
+        };
+
+        function setLevel(level) {
+            currentLevel = level;
+            const config = levels[level];
+            playerSpeed = config.playerSpeed;
+            kickPower = config.kickPower;
+            ballFriction = config.ballFriction;
+            playerSize = config.playerSize;
+            startScreen.style.display = 'none';
+            gameRunning = true;
+            resetPositions();
+            gameLoop();
+        }
+
+        function resetPositions() {
+            player1.x = canvas.width * 0.25;
+            player1.y = canvas.height / 2;
+            player1.dx = 0;
+            player1.dy = 0;
+            player2.x = canvas.width * 0.75;
+            player2.y = canvas.height / 2;
+            player2.dx = 0;
+            player2.dy = 0;
+            resetBall();
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = 0;
+            ball.dy = 0;
+        }
+
+        function updateScore() {
+            score1El.textContent = `כחול: ${score1}`;
+            score2El.textContent = `אדום: ${score2}`;
+        }
+
+        function checkWin() {
+            if (score1 >= WIN_SCORE) {
+                endGame('הכחול ניצח! 🎉');
+            } else if (score2 >= WIN_SCORE) {
+                endGame('האדום ניצח! 🎉');
+            }
+        }
+
+        function endGame(winner) {
+            gameRunning = false;
+            winnerText.textContent = winner;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        function resetGame() {
+            score1 = 0;
+            score2 = 0;
+            updateScore();
+            gameOverScreen.style.display = 'none';
+            gameRunning = true;
+            resetPositions();
+            gameLoop();
+        }
+
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        function update() {
+            // תנועת שחקן 1 (כחול - WASD)
+            if (keys['KeyW']) player1.dy = -playerSpeed;
+            else if (keys['KeyS']) player1.dy = playerSpeed;
+            else player1.dy *= 0.8;
+
+            if (keys['KeyA']) player1.dx = -playerSpeed;
+            else if (keys['KeyD']) player1.dx = playerSpeed;
+            else player1.dx *= 0.8;
+
+            // תנועת שחקן 2 (אדום - חיצים)
+            if (keys['ArrowUp']) player2.dy = -playerSpeed;
+            else if (keys['ArrowDown']) player2.dy = playerSpeed;
+            else player2.dy *= 0.8;
+
+            if (keys['ArrowLeft']) player2.dx = -playerSpeed;
+            else if (keys['ArrowRight']) player2.dx = playerSpeed;
+            else player2.dx *= 0.8;
+
+            // עדכון מיקום שחקנים
+            player1.x += player1.dx;
+            player1.y += player1.dy;
+            player2.x += player2.dx;
+            player2.y += player2.dy;
+
+            // גבולות שחקנים
+            player1.x = Math.max(fieldX + playerSize, Math.min(fieldX + fieldW - playerSize, player1.x));
+            player1.y = Math.max(fieldY + playerSize, Math.min(fieldY + fieldH - playerSize, player1.y));
+            player2.x = Math.max(fieldX + playerSize, Math.min(fieldX + fieldW - playerSize, player2.x));
+            player2.y = Math.max(fieldY + playerSize, Math.min(fieldY + fieldH - playerSize, player2.y));
+
+            // התנגשות בין שחקנים
+            let d = distance(player1.x, player1.y, player2.x, player2.y);
+            if (d < playerSize * 2) {
+                let angle = Math.atan2(player2.y - player1.y, player2.x - player1.x);
+                let overlap = playerSize * 2 - d;
+                let moveX = Math.cos(angle) * overlap / 2;
+                let moveY = Math.sin(angle) * overlap / 2;
+                player1.x -= moveX;
+                player1.y -= moveY;
+                player2.x += moveX;
+                player2.y += moveY;
+            }
+
+            // עדכון כדור
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            ball.dx *= ballFriction;
+            ball.dy *= ballFriction;
+
+            // גבולות כדור (למעט השערים)
+            if (ball.y - ball.radius < fieldY) {
+                ball.y = fieldY + ball.radius;
+                ball.dy = -ball.dy * 0.8;
+            }
+            if (ball.y + ball.radius > fieldY + fieldH) {
+                ball.y = fieldY + fieldH - ball.radius;
+                ball.dy = -ball.dy * 0.8;
+            }
+
+            // בדיקת שערים
+            if (ball.x - ball.radius < fieldX) {
+                if (ball.y > goalY && ball.y < goalY + goalHeight) {
+                    score2++;
+                    updateScore();
+                    checkWin();
+                    resetPositions();
+                } else {
+                    ball.x = fieldX + ball.radius;
+                    ball.dx = -ball.dx * 0.8;
+                }
+            }
+            if (ball.x + ball.radius > fieldX + fieldW) {
+                if (ball.y > goalY && ball.y < goalY + goalHeight) {
+                    score1++;
+                    updateScore();
+                    checkWin();
+                    resetPositions();
+                } else {
+                    ball.x = fieldX + fieldW - ball.radius;
+                    ball.dx = -ball.dx * 0.8;
+                }
+            }
+
+            // בעיטה בכדור - שחקן 1
+            let d1 = distance(player1.x, player1.y, ball.x, ball.y);
+            if (d1 < playerSize + ball.radius) {
+                let angle = Math.atan2(ball.y - player1.y, ball.x - player1.x);
+                let power = kickPower + Math.sqrt(player1.dx ** 2 + player1.dy ** 2) * 0.5;
+                ball.dx = Math.cos(angle) * power;
+                ball.dy = Math.sin(angle) * power;
+                // דחיפה קלה כדי למנוע היתקעות
+                ball.x = player1.x + Math.cos(angle) * (playerSize + ball.radius + 2);
+                ball.y = player1.y + Math.sin(angle) * (playerSize + ball.radius + 2);
+            }
+
+            // בעיטה בכדור - שחקן 2
+            let d2 = distance(player2.x, player2.y, ball.x, ball.y);
+            if (d2 < playerSize + ball.radius) {
+                let angle = Math.atan2(ball.y - player2.y, ball.x - player2.x);
+                let power = kickPower + Math.sqrt(player2.dx ** 2 + player2.dy ** 2) * 0.5;
+                ball.dx = Math.cos(angle) * power;
+                ball.dy = Math.sin(angle) * power;
+                ball.x = player2.x + Math.cos(angle) * (playerSize + ball.radius + 2);
+                ball.y = player2.y + Math.sin(angle) * (playerSize + ball.radius + 2);
+            }
+        }
+
+        function drawField() {
+            // רקע מגרש
+            ctx.fillStyle = '#1a5f1a';
+            ctx.fillRect(fieldX, fieldY, fieldW, fieldH);
+
+            // פסים ירוקים בהירים יותר
+            ctx.fillStyle = '#1e6b1e';
+            for (let i = 0; i < fieldW; i += 80) {
+                ctx.fillRect(fieldX + i, fieldY, 40, fieldH);
+            }
+
+            // קווי מגרש
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(fieldX, fieldY, fieldW, fieldH);
+
+            // קו אמצע
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, fieldY);
+            ctx.lineTo(canvas.width / 2, fieldY + fieldH);
+            ctx.stroke();
+
+            // עיגול אמצע
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // נקודת אמצע
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fill();
+
+            // ריבועי רחבה
+            let boxW = 100;
+            let boxH = 180;
+            ctx.strokeRect(fieldX, canvas.height / 2 - boxH / 2, boxW, boxH);
+            ctx.strokeRect(fieldX + fieldW - boxW, canvas.height / 2 - boxH / 2, boxW, boxH);
+
+            // שערים
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            // שער שמאל
+            ctx.fillRect(fieldX - goalWidth, goalY, goalWidth, goalHeight);
+            ctx.strokeRect(fieldX - goalWidth, goalY, goalWidth, goalHeight);
+            // שער ימין
+            ctx.fillRect(fieldX + fieldW, goalY, goalWidth, goalHeight);
+            ctx.strokeRect(fieldX + fieldW, goalY, goalWidth, goalHeight);
+
+            // רשת שערים
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < goalHeight; i += 15) {
+                ctx.beginPath();
+                ctx.moveTo(fieldX - goalWidth, goalY + i);
+                ctx.lineTo(fieldX, goalY + i);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(fieldX + fieldW, goalY + i);
+                ctx.lineTo(fieldX + fieldW + goalWidth, goalY + i);
+                ctx.stroke();
+            }
+            for (let i = 0; i < goalWidth; i += 10) {
+                ctx.beginPath();
+                ctx.moveTo(fieldX - goalWidth + i, goalY);
+                ctx.lineTo(fieldX - goalWidth + i, goalY + goalHeight);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(fieldX + fieldW + i, goalY);
+                ctx.lineTo(fieldX + fieldW + i, goalY + goalHeight);
+                ctx.stroke();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawField();
+
+            // שחקן 1 (כחול)
+            ctx.fillStyle = '#4488ff';
+            ctx.shadowColor = '#4488ff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(player1.x, player1.y, playerSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // מספר על שחקן 1
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('1', player1.x, player1.y);
+
+            // שחקן 2 (אדום)
+            ctx.fillStyle = '#ff4444';
+            ctx.shadowColor = '#ff4444';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(player2.x, player2.y, playerSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // מספר על שחקן 2
+            ctx.fillStyle = 'white';
+            ctx.fillText('2', player2.x, player2.y);
+
+            // כדור
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.sha
+            
+
+            // פס שחור על הכדור (דמוי אדידס)
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius - 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(function(registration) {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch(function(error) {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+    </script>
+</body>
+</html>
