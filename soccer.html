@@ -591,17 +591,25 @@
             const dpad1 = document.getElementById('dpad1');
             const dpad2 = document.getElementById('dpad2');
             if (!dpad1 || !dpad2) return;
+
+            const label1 = dpad1.querySelector('.dpad-label');
+            const label2 = dpad2.querySelector('.dpad-label');
+
             if (isOnline) {
+                // במצב מקוון, כל שחקן משחק עם חצים (dpad2)
+                dpad1.style.display = 'none';
+                dpad2.style.display = 'grid';
                 if (isHost) {
-                    dpad1.style.display = 'grid';
-                    dpad2.style.display = 'none';
+                    if (label2) { label2.textContent = 'אתה (כחול)'; label2.style.color = '#4488ff'; }
                 } else {
-                    dpad1.style.display = 'none';
-                    dpad2.style.display = 'grid';
+                    if (label2) { label2.textContent = 'אתה (אדום)'; label2.style.color = '#ff4444'; }
                 }
             } else {
+                // מצב מקומי - כחול=WASD, אדום=חצים
                 dpad1.style.display = 'grid';
                 dpad2.style.display = 'grid';
+                if (label1) { label1.textContent = 'כחול'; label1.style.color = '#4488ff'; }
+                if (label2) { label2.textContent = 'אדום'; label2.style.color = '#ff4444'; }
             }
         }
 
@@ -1050,14 +1058,26 @@
         }
 
         function update() {
-            // תנועת שחקן 1 (כחול - WASD) - תמיד מקומי
-            if (keys['KeyW']) player1.dy = -playerSpeed;
-            else if (keys['KeyS']) player1.dy = playerSpeed;
-            else player1.dy *= 0.8;
+            // תנועת שחקן 1 (כחול)
+            if (isOnline) {
+                // במצב מקוון, כל שחקן משחק עם החצים של המכשיר שלו
+                if (keys['ArrowUp']) player1.dy = -playerSpeed;
+                else if (keys['ArrowDown']) player1.dy = playerSpeed;
+                else player1.dy *= 0.8;
 
-            if (keys['KeyA']) player1.dx = -playerSpeed;
-            else if (keys['KeyD']) player1.dx = playerSpeed;
-            else player1.dx *= 0.8;
+                if (keys['ArrowLeft']) player1.dx = -playerSpeed;
+                else if (keys['ArrowRight']) player1.dx = playerSpeed;
+                else player1.dx *= 0.8;
+            } else {
+                // מצב מקומי - WASD
+                if (keys['KeyW']) player1.dy = -playerSpeed;
+                else if (keys['KeyS']) player1.dy = playerSpeed;
+                else player1.dy *= 0.8;
+
+                if (keys['KeyA']) player1.dx = -playerSpeed;
+                else if (keys['KeyD']) player1.dx = playerSpeed;
+                else player1.dx *= 0.8;
+            }
 
             // תנועת שחקן 2 (אדום - חיצים)
             if (isOnline) {
