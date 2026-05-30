@@ -57,6 +57,85 @@
             border-radius: 10px;
             background: #1a5f1a;
             box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+            max-width: 100vw;
+            max-height: 60vh;
+        }
+
+        /* מגע למובייל */
+        #touchControls {
+            position: absolute;
+            bottom: 15px;
+            left: 0;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: 55px 55px 55px;
+            grid-template-rows: 55px 55px 55px;
+            gap: 4px;
+            pointer-events: auto;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 12px;
+            color: white;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            cursor: pointer;
+            transition: background 0.1s, transform 0.05s;
+        }
+
+        .dpad-btn:active, .dpad-btn.pressed {
+            background: rgba(0, 255, 136, 0.35);
+            border-color: #00ff88;
+            transform: scale(0.92);
+        }
+
+        .dpad-btn.empty {
+            visibility: hidden;
+        }
+
+        .dpad-label {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 6px;
+            grid-column: 1 / 4;
+        }
+
+        /* Show touch controls only on touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            #touchControls {
+                display: flex;
+            }
+            #controls {
+                display: none;
+            }
+            canvas {
+                max-height: 55vh;
+            }
+            h1 {
+                font-size: 1.6rem;
+                margin-bottom: 5px;
+            }
+            #scoreBoard {
+                font-size: 1.2rem;
+                gap: 30px;
+                margin-bottom: 5px;
+            }
         }
 
         #controls {
@@ -266,6 +345,34 @@
         <span id="controlsText">כחול:</span> W A S D לתזוזה &nbsp;&nbsp;&nbsp; <span id="controlsText2">אדום:</span> חיצים לתזוזה
     </div>
 
+    <!-- שליטת מגע למובייל -->
+    <div id="touchControls">
+        <div class="dpad" id="dpad1">
+            <div class="dpad-label" style="color:#4488ff;">כחול</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="KeyW" data-player="1">▲</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="KeyA" data-player="1">◀</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="KeyD" data-player="1">▶</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="KeyS" data-player="1">▼</div>
+            <div class="dpad-btn empty"></div>
+        </div>
+        <div class="dpad" id="dpad2">
+            <div class="dpad-label" style="color:#ff4444;">אדום</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="ArrowUp" data-player="2">▲</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="ArrowLeft" data-player="2">◀</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="ArrowRight" data-player="2">▶</div>
+            <div class="dpad-btn empty"></div>
+            <div class="dpad-btn" data-key="ArrowDown" data-player="2">▼</div>
+            <div class="dpad-btn empty"></div>
+        </div>
+    </div>
+
     <!-- מסך פתיחה ראשי -->
     <div id="startScreen" class="overlay-screen">
         <div class="screen-title">כדורגל מיני</div>
@@ -429,7 +536,74 @@
 
         window.onload = () => {
             document.body.focus();
+            setupTouchControls();
         };
+
+        function setupTouchControls() {
+            const dpad1 = document.getElementById('dpad1');
+            const dpad2 = document.getElementById('dpad2');
+            const touchControls = document.getElementById('touchControls');
+
+            function handleTouch(e) {
+                e.preventDefault();
+                const btn = e.target.closest('.dpad-btn');
+                if (!btn || btn.classList.contains('empty')) return;
+                const key = btn.dataset.key;
+                if (e.type === 'touchstart') {
+                    keys[key] = true;
+                    btn.classList.add('pressed');
+                } else if (e.type === 'touchend' || e.type === 'touchcancel') {
+                    keys[key] = false;
+                    btn.classList.remove('pressed');
+                }
+            }
+
+            // Prevent context menu on long press
+            touchControls.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Use touch events with passive:false to allow preventDefault
+            ['touchstart', 'touchend', 'touchcancel'].forEach(evt => {
+                touchControls.addEventListener(evt, handleTouch, { passive: false });
+            });
+
+            // Also handle mouse for desktop testing
+            touchControls.addEventListener('mousedown', (e) => {
+                const btn = e.target.closest('.dpad-btn');
+                if (!btn || btn.classList.contains('empty')) return;
+                keys[btn.dataset.key] = true;
+                btn.classList.add('pressed');
+            });
+            touchControls.addEventListener('mouseup', (e) => {
+                const btn = e.target.closest('.dpad-btn');
+                if (!btn || btn.classList.contains('empty')) return;
+                keys[btn.dataset.key] = false;
+                btn.classList.remove('pressed');
+            });
+            touchControls.addEventListener('mouseleave', (e) => {
+                const btn = e.target.closest('.dpad-btn');
+                if (!btn || btn.classList.contains('empty')) return;
+                keys[btn.dataset.key] = false;
+                btn.classList.remove('pressed');
+            });
+        }
+
+        function updateTouchVisibility() {
+            const dpad1 = document.getElementById('dpad1');
+            const dpad2 = document.getElementById('dpad2');
+            if (!dpad1 || !dpad2) return;
+            if (isOnline) {
+                if (isHost) {
+                    dpad1.style.display = 'grid';
+                    dpad2.style.display = 'none';
+                } else {
+                    dpad1.style.display = 'none';
+                    dpad2.style.display = 'grid';
+                }
+            } else {
+                dpad1.style.display = 'grid';
+                dpad2.style.display = 'grid';
+            }
+        }
 
         // ========== ניווט מסכים ==========
 
@@ -766,6 +940,7 @@
                 c1.textContent = 'כחול:';
                 c2.textContent = 'אדום:';
             }
+            updateTouchVisibility();
         }
 
         function showDisconnect(msg) {
